@@ -117,7 +117,7 @@ class Block(nn.Module):
         x = x + self.ffwd(self.ln2(x))
         return x
 
-class BigramLanguageModel(nn.Module):
+class GPTLanguageModel(nn.Module):
     def __init__(self):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
@@ -153,7 +153,7 @@ class BigramLanguageModel(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1)
         return idx
 
-model = BigramLanguageModel()
+model = GPTLanguageModel()
 m = model.to(device)
 
 optimizer = torch.optim.AdamW(m.parameters(), lr=learning_rate)
@@ -163,12 +163,19 @@ for iter in range(max_iters):
         losses = estimate_loss()
         print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
 
+        # Save model weights every other eval_interval
+        if iter % (2 * eval_interval) == 0:
+            torch.save(m.state_dict(), f'gpt_model_step_{iter}.pth')
+            print(f"Model saved to gpt_model_step_{iter}.pth")
+
     xb, yb = get_batch('train')
     logits, loss = m(xb, yb)
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
 
+torch.save(m.state_dict(), 'gpt_model_final.pth')
+print("Final model saved to gpt_model_final.pth")
+
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
-print(decode(m.generate(context, max_new_tokens=500)[0].tolist()))
 open('out.txt', 'w').write(decode(m.generate(context, max_new_tokens=10000)[0].tolist()))
